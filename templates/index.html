@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Language Recognition and Image Generation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #333; /* Dark metallic gray background */
+            color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #444; /* Slightly lighter gray for container background */
+            border-radius: 10px;
+        }
+
+        .video-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px; /* Space between video and info */
+        }
+
+        #videoFeed {
+            border: 2px solid #6c757d; /* Metallic gray border */
+            border-radius: 10px;
+            max-width: 100%;
+        }
+
+        .info-container {
+            text-align: center;
+            margin-top: 20px; /* Space between video and info */
+        }
+
+        .word-container {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .word-container button,
+        form button,
+        .video-container button,
+        .info-container button {
+            background-color: #6c757d; /* Metallic gray background */
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s, transform 0.3s, box-shadow 0.3s;
+        }
+
+        .word-container button:hover,
+        form button:hover,
+        .video-container button:hover,
+        .info-container button:hover {
+            background-color: #495057; /* Darker metallic gray background on hover */
+            transform: scale(1.05); /* Slightly enlarge button */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); /* Enhanced shadow on hover */
+        }
+
+        h1 {
+            color: #6c757d; /* Metallic gray text */
+            text-align: center;
+        }
+
+        form {
+            background-color: #444; /* Slightly lighter gray for form background */
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        form label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        form input {
+            font-size: 18px;
+            padding: 10px;
+            border: 1px solid #666;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            background-color: #333; /* Darker gray background for input */
+            color: #fff;
+        }
+
+        #result {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #result img {
+            max-width: 100%;
+            border: 2px solid #6c757d; /* Metallic gray border */
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sign Language Recognition and Image Generation</h1>
+        
+        <div class="video-container">
+            <img id="videoFeed" src="{{ url_for('video_feed') }}" width="640" height="480" alt="Video Feed">
+            <button onclick="startDetection()">Start Detection</button>
+        </div>
+        
+        <div class="info-container">
+            <button onclick="convertFinalWordToSpeech()">Convert to Speech</button>
+        </div>
+        
+        <form id="image-form">
+            <label for="prompt">Prompt:</label>
+            <input type="text" id="prompt" name="prompt" readonly>
+            <button type="submit">Generate Image</button>
+        </form>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function startDetection() {
+            fetch('/start_detection')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.message);
+                });
+        }
+
+        function fetchFinalWord() {
+            fetch('/get_final_word')
+                .then(response => response.json())
+                .then(data => {
+                    const finalWord = data.final_word || 'Waiting for input...';
+                    document.getElementById('prompt').value = finalWord;
+                })
+                .catch(error => {
+                    console.error('Error fetching final word:', error);
+                });
+        }
+
+        function convertFinalWordToSpeech() {
+            fetch('/get_final_word')
+                .then(response => response.json())
+                .then(data => {
+                    const finalWord = data.final_word;
+                    if (finalWord) {
+                        const speechSynth = window.speechSynthesis;
+                        const newUtter = new SpeechSynthesisUtterance(finalWord);
+                        speechSynth.speak(newUtter);
+                    }
+                });
+        }
+
+        document.getElementById('image-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const prompt = document.getElementById('prompt').value;
+            const apiKey = "3453cd10-7b6f-4d17-be82-fda1efc0a16c:7ebb8f4a569627abca850d9a621d8385"; // Insert your API key here
+
+            const requestBody = {
+                prompt: prompt,
+                image_size: "square_hd",
+                num_inference_steps: 4,
+                num_images: 1,
+                format: "jpeg"
+            };
+
+            try {
+                const response = await fetch('/generate_image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+                const imageUrl = data.image_url;
+
+                document.getElementById('result').innerHTML = `<img src="${imageUrl}" alt="Generated Image">`;
+
+            } catch (error) {
+                console.error('There was a problem with the fetch operation:', error);
+                document.getElementById('result').textContent = 'Error generating image.';
+            }
+        });
+
+        // Fetch final word initially and then every 3 seconds
+        fetchFinalWord();
+        setInterval(fetchFinalWord, 3000); // Update every 3 seconds
+    </script>
+</body>
+</html>
